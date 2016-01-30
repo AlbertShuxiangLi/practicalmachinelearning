@@ -1,0 +1,166 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Albert Shuxiang Li"
+date: "January 28, 2016"
+output: 
+  html_document: 
+    fig_caption: yes
+    keep_md: yes
+    number_sections: yes
+    toc: yes
+---
+# Project Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+# Data Source of Project
+
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+# Project Objective
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. Any of the other variables can be used to predict with. Following questions will be answered in this write up.
+
+1. How the prediction models are built? 
+2. How cross validation being used? 
+3. What the expected out of sample error is?
+4. Why the choices of prediction model?
+5. Show prediction result for 20 different test cases with chosen prediction model? 
+
+# Process Data
+## Download Data and Load into System
+```{r, chunk-1, cache=TRUE}
+set.seed(3606)
+library(caret); library(rpart); library(rpart.plot); library(RColorBrewer)
+library(rattle); library(randomForest); library(knitr); library(gbm)
+Url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+Url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(Url_train), na.strings=c("NA", "#DIV/0!", ""))
+testing <- read.csv(url(Url_test), na.strings=c("NA", "#DIV/0!", ""))
+# dim(training); dim(testing)
+```
+## Clean Data
+### Remove NearZeroVariance variables
+```{r, chunk-2-1, cache=TRUE}
+nzv <- nearZeroVar(training, saveMetrics = TRUE)
+training <- training[, nzv$nzv==FALSE]
+```
+### Remove variables which contain more than 55% NA
+```{r, chunk-2-2, cache=TRUE}
+trainingTEMP <- training
+for(i in 1:length(training)) {
+    if( sum( is.na( training[, i] ) ) /nrow(training) >= .55) {
+        for(j in 1:length(trainingTEMP)) {
+            if( length( grep(names(training[i]), names(trainingTEMP)[j]) ) == 1)  {
+                trainingTEMP <- trainingTEMP[ , -j]
+            }   
+        } 
+    }
+}
+training <- trainingTEMP; rm(trainingTEMP)
+```
+### Remove irrelavent variables
+After check with str(training), it is recongnized that the first 6 columns (variables) are NOT related to movement, thus we can remove them: 
+1. X  
+2. user_name  
+3. raw_timestamp_part_1  
+4. raw_timestamp_part_2  
+5. cvtd_timestamp  
+6. num_window
+```{r, chunk-2-3, cache=TRUE}
+training = training[,-c(1:6)]
+```
+### Remove highly correlated variables
+```{r, chunk-2-4, cache=TRUE}
+x1 <- training[, -53]; correlation.matrix <- cor(x1)
+highly.correlated <- findCorrelation(correlation.matrix, cutoff=0.75)
+# print(names(training)[highly.correlated])
+training <- training[, -highly.correlated]
+# dim(training); str(training)
+```
+## Partition training set into two sets
+```{r, chunk-2-5, cache=TRUE}
+inTrain <- createDataPartition(training$classe, p=0.6, list=FALSE)
+myTraining <- training[inTrain, ]
+myTesting <- training[-inTrain, ]
+# dim(myTraining); dim(myTesting); dim(testing)
+```
+## Sync myTesting, myTesting and testing columns
+```{r, chunk-2-6, cache=TRUE}
+myTesting <- myTesting[colnames(myTraining)]
+testing <- testing[colnames(myTraining[, -32])] # no classe variable in testing
+# dim(myTraining); dim(myTesting); dim(testing) 
+# therefore, there are 31 predictors being used
+```
+
+# Predict Utilizing Decision Trees
+```{r, chunk-3, cache=TRUE, eval=TRUE}
+t5 <- Sys.time(); set.seed(3606)
+modFitDT <- rpart::rpart(classe ~ ., data=myTraining, method="class")
+rattle::fancyRpartPlot(modFitDT)
+predictionsDT <- predict(modFitDT, myTesting, type = "class")
+confusionMatrixDT <- confusionMatrix(predictionsDT, myTesting$classe)
+confusionMatrixDT
+plot(confusionMatrixDT$table, col = confusionMatrixDT$byClass, 
+     main = paste("Decision Tree Confusion Matrix: Accuracy =", round(confusionMatrixDT$overall['Accuracy'], 4)))
+t6 <- Sys.time(); t6-t5
+```
+
+# Predict Utilizing Random Forests
+```{r, chunk-4, cache=TRUE, eval=TRUE}
+t7 <- Sys.time(); set.seed(3606)
+modFitRF <- randomForest(classe ~ ., data=myTraining)
+predictionRF <- predict(modFitRF, myTesting, type = "class")
+ConfusionMatrixRF <- confusionMatrix(predictionRF, myTesting$classe)
+ConfusionMatrixRF; plot(modFitRF, main="Final Model with Random Forests")
+plot(ConfusionMatrixRF$table, col = ConfusionMatrixRF$byClass, 
+     main = paste("Random Forest Confusion Matrix: Accuracy =", round(ConfusionMatrixRF$overall['Accuracy'], 4)))
+t8 <- Sys.time(); t8 - t7
+```
+
+# Predict Utilizing Gradient Boosting Machine
+```{r, chunk-5, cache=TRUE, eval=TRUE}
+t9 <- Sys.time(); set.seed(3606)
+fitControl <- trainControl(method = "repeatedcv", number = 5, repeats = 2, allowParallel = TRUE)
+modFitGBM <- train(classe ~ ., data = myTraining, method = "gbm", trControl = fitControl, verbose = FALSE)
+prodictionGBM <- predict(modFitGBM, newdata=myTesting)
+ConfusionMatrixGBM <- confusionMatrix(prodictionGBM, myTesting$classe)
+ConfusionMatrixGBM; plot(modFitGBM, ylim=c(0.8, 1))
+t10 <- Sys.time(); t10 - t9
+```
+  
+__"Repeated Cross Validation" is included in GBM modeling shown above (method='repeatedcv').__  
+
+# Predict Test Data Set
+When train data with myTraining, and predict outcome of myTesting, the accuracy of various methods are:
+
+1. Decision Tree = 67.44%;
+2. Random Forests = 99.21%;
+3. Generalized Boosted Regression = 94.86%.  
+
+Therefore, __Random Forest__ method will be used to make prediction here. Thus, the __expected out-of-sample error__ 
+is 100% - 99.21% __= 0.79%__.  
+
+ __The Prediction Results are listed as below__  
+
+```{r, chunk-6, cache=TRUE, eval=TRUE}
+set.seed(3606)
+predictionTEST <- predict(modFitRF, testing, type = "class")
+predictionTEST
+```
+# Summary
+1. From original 159 variables, __31 variables__ are selected to predict variable "classe".
+2. Following techniques have been used to clean up the data set
+  + remove NearZeroVariance variables  
+  + remove variables which contain more than 55% NA  
+  + remove irrelavent variables  
+  + remove highly correlated variables
+3. Among three algorithm (Decision Tree, Random Forest and Garident Boosting Machine) investigated, __Random Forest__ perform better, with which __99.21% accurary__ is obtained.
+4. Cross Validation is employed inside the prediction method through R package.
+5. A prediction for "testing" data set has been made, shown in section "Predict Test Data Set".
