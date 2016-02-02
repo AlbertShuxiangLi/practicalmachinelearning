@@ -1,0 +1,7 @@
+name: Publish Document
+account: rpubs
+server: rpubs.com
+bundleId:
+        https://api.rpubs.com/api/v1/document/149455/41aecce5ee9f42a1a87071111edc4301
+url: http://rpubs.com/Albert_Shuxiang_Li/149455
+when: 1454384114.70451

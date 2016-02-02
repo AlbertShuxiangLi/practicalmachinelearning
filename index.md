@@ -1,6 +1,6 @@
 # Practical Machine Learning Course Project
 Albert Shuxiang Li  
-January 28, 2016  
+January 31, 2016  
 # Project Background
 
 Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
@@ -31,42 +31,12 @@ The goal of this project is to predict the manner in which they did the exercise
 ```r
 set.seed(3606)
 library(caret); library(rpart); library(rpart.plot); library(RColorBrewer)
-```
-
-```
-## Loading required package: lattice
-## Loading required package: ggplot2
-```
-
-```r
 library(rattle); library(randomForest); library(knitr); library(gbm)
-```
-
-```
-## Rattle: A free graphical interface for data mining with R.
-## Version 4.0.5 Copyright (c) 2006-2015 Togaware Pty Ltd.
-## Type 'rattle()' to shake, rattle, and roll your data.
-## randomForest 4.6-12
-## Type rfNews() to see new features/changes/bug fixes.
-## Loading required package: survival
-## 
-## Attaching package: 'survival'
-## 
-## The following object is masked from 'package:caret':
-## 
-##     cluster
-## 
-## Loading required package: splines
-## Loading required package: parallel
-## Loaded gbm 2.1.1
-```
-
-```r
 Url_train <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
 Url_test <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
 training <- read.csv(url(Url_train), na.strings=c("NA", "#DIV/0!", ""))
 testing <- read.csv(url(Url_test), na.strings=c("NA", "#DIV/0!", ""))
-# dim(training); dim(testing)
+dim(training); dim(testing)
 ```
 ## Clean Data
 ### Remove NearZeroVariance variables
@@ -89,9 +59,10 @@ for(i in 1:length(training)) {
     }
 }
 training <- trainingTEMP; rm(trainingTEMP)
+# dim(training); dim(testing)
 ```
 ### Remove irrelavent variables
-After check with str(training), it is recongnized that the first 6 columns (variables) are NOT related to movement, thus we can remove them: 
+After check with str(training), it is recongnized that the first 6 columns (variables) are NOT related to movement, thus we can remove:  
 1. X  
 2. user_name  
 3. raw_timestamp_part_1  
@@ -111,6 +82,7 @@ highly.correlated <- findCorrelation(correlation.matrix, cutoff=0.75)
 training <- training[, -highly.correlated]
 # dim(training); str(training)
 ```
+
 ## Partition training set into two sets
 
 ```r
@@ -119,6 +91,7 @@ myTraining <- training[inTrain, ]
 myTesting <- training[-inTrain, ]
 # dim(myTraining); dim(myTesting); dim(testing)
 ```
+
 ## Sync myTesting, myTesting and testing columns
 
 ```r
@@ -131,199 +104,171 @@ testing <- testing[colnames(myTraining[, -32])] # no classe variable in testing
 # Predict Utilizing Decision Trees
 
 ```r
-t5 <- Sys.time(); set.seed(3606)
+# t1 <- Sys.time()
+set.seed(3606)
 modFitDT <- rpart::rpart(classe ~ ., data=myTraining, method="class")
-rattle::fancyRpartPlot(modFitDT)
-```
-
-![](index_files/figure-html/chunk-3-1.png) 
-
-```r
+# rattle::fancyRpartPlot(modFitDT)
 predictionsDT <- predict(modFitDT, myTesting, type = "class")
 confusionMatrixDT <- confusionMatrix(predictionsDT, myTesting$classe)
-confusionMatrixDT
-```
-
-```
-## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1849  246   69   91   30
-##          B  137  874  172   90  185
-##          C   99  229 1017  285  276
-##          D   72  120   55  707  107
-##          E   75   49   55  113  844
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.6744          
-##                  95% CI : (0.6639, 0.6847)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc > NIR] : < 2.2e-16       
-##                                           
-##                   Kappa : 0.5878          
-##  Mcnemar's Test P-Value : < 2.2e-16       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.8284   0.5758   0.7434  0.54977   0.5853
-## Specificity            0.9223   0.9077   0.8628  0.94604   0.9544
-## Pos Pred Value         0.8092   0.5995   0.5336  0.66635   0.7430
-## Neg Pred Value         0.9311   0.8992   0.9409  0.91466   0.9109
-## Prevalence             0.2845   0.1935   0.1744  0.16391   0.1838
-## Detection Rate         0.2357   0.1114   0.1296  0.09011   0.1076
-## Detection Prevalence   0.2912   0.1858   0.2429  0.13523   0.1448
-## Balanced Accuracy      0.8754   0.7417   0.8031  0.74790   0.7699
-```
-
-```r
+# confusionMatrixDT
 plot(confusionMatrixDT$table, col = confusionMatrixDT$byClass, 
-     main = paste("Decision Tree Confusion Matrix: Accuracy =", round(confusionMatrixDT$overall['Accuracy'], 4)))
+     main = paste("Prediction by Decision Tree (31 Predictors): Accuracy =", 
+                  round(confusionMatrixDT$overall['Accuracy'], 4)))
 ```
 
-![](index_files/figure-html/chunk-3-2.png) 
+![](index_files/figure-html/chunk-3-1.png)
 
 ```r
-t6 <- Sys.time(); t6-t5
+# t2 <- Sys.time(); t2-t1 ## Time difference of 1.508441 secs
 ```
 
-```
-## Time difference of 9.81996 secs
-```
-
-# Predict Utilizing Random Forests
+# Predict Utilizing Random Forest
 
 ```r
-t7 <- Sys.time(); set.seed(3606)
-modFitRF <- randomForest(classe ~ ., data=myTraining)
+# t3 <- Sys.time()
+set.seed(3606)
+modFitRF <- randomForest(classe ~ ., data=myTraining, ntree=200, importance=TRUE)
 predictionRF <- predict(modFitRF, myTesting, type = "class")
 ConfusionMatrixRF <- confusionMatrix(predictionRF, myTesting$classe)
-ConfusionMatrixRF; plot(modFitRF, main="Final Model with Random Forests")
+# ConfusionMatrixRF; 
+plot(modFitRF, main="Final Model with Random Forests (31 Predictors)")
 ```
 
-```
-## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 2228    5    0    0    0
-##          B    3 1508   12    0    0
-##          C    1    4 1344   17    0
-##          D    0    0   10 1266    4
-##          E    0    1    2    3 1438
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.9921          
-##                  95% CI : (0.9899, 0.9939)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc > NIR] : < 2.2e-16       
-##                                           
-##                   Kappa : 0.99            
-##  Mcnemar's Test P-Value : NA              
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9982   0.9934   0.9825   0.9844   0.9972
-## Specificity            0.9991   0.9976   0.9966   0.9979   0.9991
-## Pos Pred Value         0.9978   0.9902   0.9839   0.9891   0.9958
-## Neg Pred Value         0.9993   0.9984   0.9963   0.9970   0.9994
-## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2840   0.1922   0.1713   0.1614   0.1833
-## Detection Prevalence   0.2846   0.1941   0.1741   0.1631   0.1840
-## Balanced Accuracy      0.9987   0.9955   0.9895   0.9912   0.9981
-```
-
-![](index_files/figure-html/chunk-4-1.png) 
+![](index_files/figure-html/chunk-4-1.png)
 
 ```r
 plot(ConfusionMatrixRF$table, col = ConfusionMatrixRF$byClass, 
-     main = paste("Random Forest Confusion Matrix: Accuracy =", round(ConfusionMatrixRF$overall['Accuracy'], 4)))
+     main = paste("Prediction by Random Forest (31 Predictors): Accuracy =", 
+                  round(ConfusionMatrixRF$overall['Accuracy'], 4)))
 ```
 
-![](index_files/figure-html/chunk-4-2.png) 
+![](index_files/figure-html/chunk-4-2.png)
 
 ```r
-t8 <- Sys.time(); t8 - t7
-```
-
-```
-## Time difference of 1.929168 mins
+# t4 <- Sys.time(); t4 - t3 ## Time difference of 14.26705 secs
 ```
 
 # Predict Utilizing Gradient Boosting Machine
 
 ```r
-t9 <- Sys.time(); set.seed(3606)
-fitControl <- trainControl(method = "repeatedcv", number = 5, repeats = 2, allowParallel = TRUE)
-modFitGBM <- train(classe ~ ., data = myTraining, method = "gbm", trControl = fitControl, verbose = FALSE)
-```
-
-```
-## Loading required package: plyr
-```
-
-```r
+# t5 <- Sys.time()
+set.seed(3606)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+fitControlGBM <- caret::trainControl(method = "repeatedcv", 
+                                     number = 5, repeats = 4, allowParallel = TRUE)
+modFitGBM <- caret::train(classe ~ ., data = myTraining, 
+                          method = "gbm", trControl = fitControlGBM, verbose = FALSE)
 prodictionGBM <- predict(modFitGBM, newdata=myTesting)
+stopCluster(cluster)
 ConfusionMatrixGBM <- confusionMatrix(prodictionGBM, myTesting$classe)
-ConfusionMatrixGBM; plot(modFitGBM, ylim=c(0.8, 1))
+cat("The GBM Accuracy = ", round(ConfusionMatrixGBM$overall['Accuracy']*100, 2), "%", sep="")
 ```
 
 ```
-## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 2175   48    2    0    7
-##          B   27 1407   75   14   16
-##          C   12   53 1262   49   12
-##          D   16    6   27 1208   16
-##          E    2    4    2   15 1391
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.9486          
-##                  95% CI : (0.9435, 0.9534)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc > NIR] : < 2.2e-16       
-##                                           
-##                   Kappa : 0.935           
-##  Mcnemar's Test P-Value : 4.456e-09       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9745   0.9269   0.9225   0.9393   0.9646
-## Specificity            0.9898   0.9791   0.9805   0.9901   0.9964
-## Pos Pred Value         0.9745   0.9142   0.9092   0.9489   0.9837
-## Neg Pred Value         0.9898   0.9824   0.9836   0.9881   0.9921
-## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2772   0.1793   0.1608   0.1540   0.1773
-## Detection Prevalence   0.2845   0.1962   0.1769   0.1622   0.1802
-## Balanced Accuracy      0.9822   0.9530   0.9515   0.9647   0.9805
+## The GBM Accuracy = 94.56%
 ```
-
-![](index_files/figure-html/chunk-5-1.png) 
 
 ```r
-t10 <- Sys.time(); t10 - t9
+plot(modFitGBM, ylim=c(0.7, 1))
 ```
 
+![](index_files/figure-html/chunk-5-1.png)
+
+```r
+# t6 <- Sys.time(); t6 - t5 ## Time difference of 3.397989 mins
 ```
-## Time difference of 12.52296 mins
+
+# Predict Utilizing Random Forest plus Recusive Feature Elimination
+
+```r
+# t7 <- Sys.time() # OPTIONAL SECTION
+set.seed(3606)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+# define control using random forest selection function
+ctrl <- rfeControl(functions=rfFuncs, method="cv", number=10)
+# run RFE algorithm
+results <- rfe(training[, -32], training[, 32], sizes=c(1:15), rfeControl=ctrl)
+stopCluster(cluster)
+# print(results) # list chosen features # predictors(results)
+# dim(training)
+# t8 <- Sys.time(); t8 - t7 ## Time difference of 16.46114 mins
 ```
+
+```r
+# t9 <- Sys.time() # OPTIONAL SECTION
+set.seed(3606)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+myTraining2 <- myTraining[, predictors(results)[1:15]]
+myTraining2$classe <- myTraining$classe
+myTesting2 <- myTesting[, predictors(results)[1:15]]
+myTesting2$classe <- myTesting$classe
+# dim(myTraining2); dim(myTesting2)
+fitControl <- trainControl(method = "cv", number = 10, allowParallel = TRUE)
+modFitRF2 <- train(classe ~ ., data=myTraining2, method = "rf",
+                   trControl = fitControl)
+predictionRF2 <- predict(modFitRF2, myTesting2, type = "raw")
+ConfusionMatrixRF2 <- confusionMatrix(predictionRF2, myTesting2$classe)
+# plot(modFitRF2, main="Final Model with Random Forests")
+plot(ConfusionMatrixRF2$table, col = ConfusionMatrixRF2$byClass, 
+     main = paste("Prediction by Random Forest (15 Predictors): Accuracy =", 
+                  round(ConfusionMatrixRF2$overall['Accuracy'], 4)))
+```
+
+![](index_files/figure-html/chunk-optional-prediction-rfe-1.png)
+
+```r
+stopCluster(cluster)
+# t10 <- Sys.time(); t10 - t9 ## Time difference of 2.161987 mins
+```
+
+# Predict Utilizing Random Forest plus Variable Selection by Importance
+
+```r
+# t11 <- Sys.time() #OPTIONAL SECTION
+set.seed(3606)
+library(doParallel)
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+A <- modFitRF$importance[, "MeanDecreaseAccuracy"]
+B <- order(A, decreasing = TRUE); # A[B]
+# "yaw_belt","roll_forearm, magnet_dumbbell_z", "roll_dumbbell", "pitch_forearm"
+# "magnet_belt_y", "accel_forearm_x", "yaw_dumbbell", "total_accel_dumbbell"
+myTraining3 <- myTraining[, B[1:9]]
+myTraining3$classe <- myTraining$classe
+myTesting3 <- myTesting[, B[1:9]]
+myTesting3$classe <- myTesting$classe
+fitControl <- trainControl(method = "cv", number = 10, allowParallel = TRUE)
+modFitRF3 <- train(classe ~ ., data=myTraining3, method = "rf", trControl = fitControl)
+predictionRF3 <- predict(modFitRF3, myTesting3, type = "raw")
+ConfusionMatrixRF3 <- confusionMatrix(predictionRF3, myTesting3$classe)
+# plot(modFitRF3, main="Final Model with Random Forests (9 Predictors)")
+plot(ConfusionMatrixRF3$table, col = ConfusionMatrixRF3$byClass, 
+     main = paste("Prediction by Random Forest (9 Predictors): Accuracy =", 
+                  round(ConfusionMatrixRF3$overall['Accuracy'], 4)))
+```
+
+![](index_files/figure-html/chunk-optional-varIMP-1.png)
+
+```r
+stopCluster(cluster)
+# t12 <- Sys.time(); t12 - t11 ## Time difference of 1.490645 mins
+```
+
   
-__"Repeated Cross Validation" is included in GBM modeling shown above (method='repeatedcv').__  
+__"Repeated Cross Validation" is included in GBM modeling shown above (method='repeatedcv'). Also, in the optional sections, 10-fold Cross-Validation is used for Random Forest modeling.__  
 
 # Predict Test Data Set
 When train data with myTraining, and predict outcome of myTesting, the accuracy of various methods are:
 
-1. Decision Tree = 67.44%;
+1. Decision Tree = 67.42%;
 2. Random Forests = 99.21%;
-3. Generalized Boosted Regression = 94.86%.  
+3. Generalized Boosted Regression = 94.56%.  
 
 Therefore, __Random Forest__ method will be used to make prediction here. Thus, the __expected out-of-sample error__ 
 is 100% - 99.21% __= 0.79%__.  
@@ -333,6 +278,7 @@ is 100% - 99.21% __= 0.79%__.
 
 ```r
 set.seed(3606)
+# predict with 31 variables
 predictionTEST <- predict(modFitRF, testing, type = "class")
 predictionTEST
 ```
@@ -342,13 +288,51 @@ predictionTEST
 ##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
 ## Levels: A B C D E
 ```
+
+```r
+# predict with 15 varibles selected by RFE
+testing2 <- testing[, predictors(results)[1:15]]
+predictionTEST2 <- predict(modFitRF2, testing2, type = "raw")
+predictionTEST2
+```
+
+```
+##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E
+```
+
+```r
+# predict with 9 variables slected by varImp
+testing3 <- testing[, B[1:9]]
+predictionTEST3 <- predict(modFitRF3, testing3, type = "raw")
+predictionTEST3
+```
+
+```
+##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E
+```
 # Summary
-1. From original 159 variables, __31 variables__ are selected to predict variable "classe".
+  
+
+1. From original 159 variables, __31 variables__ are selected to predict variable "classe".  
 2. Following techniques have been used to clean up the data set
   + remove NearZeroVariance variables  
   + remove variables which contain more than 55% NA  
   + remove irrelavent variables  
   + remove highly correlated variables
-3. Among three algorithm (Decision Tree, Random Forest and Garident Boosting Machine) investigated, __Random Forest__ perform better, with which __99.21% accurary__ is obtained.
-4. Cross Validation is employed inside the prediction method through R package.
-5. A prediction for "testing" data set has been made, shown in section "Predict Test Data Set".
+3. Among three algorithm (Decision Tree, Random Forest and Garident Boosting Machine) investigated, __Random Forest__ perform better, with which __99.21% accuracy__ is obtained.  
+4. __Cross Validation__ is employed inside the prediction method __through R package__.  
+5. A prediction for "testing" data set has been made, shown in section "Predict Test Data Set".   
+6. Optionally, __RFE__ method used to select __15 predictors__, the Radon Forest __accuracy is 98.6%__.    
+7. optionally, __varImp__ method used to select __9 predictors__, the Radon Forest __accuracy is 97.37%__.
+
+# Appendix
+
+```r
+cat(Sys.info()[1:2], "   ", R.version.string)
+```
+
+```
+## Windows 10 x64     R version 3.2.3 (2015-12-10)
+```
